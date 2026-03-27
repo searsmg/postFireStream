@@ -181,16 +181,19 @@ bindData <- bind_cols(pcaDataIn,
 stageRise <- glmer(stage_rise_cm ~ MI60_mmhr * PC1 + MI60_mmhr * PC2 + yearCont + (1|site_number),
                    data = bindData,
                    family = Gamma(link = 'log'),
-                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1000000)))
+                   control = glmerControl(optimizer = "bobyqa", 
+                                          optCtrl = list(maxfun = 1000000)))
 
 summary(stageRise)
 
 # conditional effects plot for PC1 x MI60
-ggeffect(stageRise, terms = c("MI60_mmhr", "PC1"), bias_correction = TRUE) %>% 
+ggeffect(stageRise, terms = c("MI60_mmhr", "PC1"), b
+         ias_correction = TRUE) %>% 
   plot + theme_bw(base_size = 20)
 
 # conditional effects plot for PC2 x MI60
-ggeffect(stageRise, terms = c("MI60_mmhr", "PC2"), bias_correction = TRUE) %>% 
+ggeffect(stageRise, terms = c("MI60_mmhr", "PC2"), 
+         bias_correction = TRUE) %>% 
   plot + theme_bw(base_size = 20)
 
 #save.image(file = "./data/pca_output/stageRisePCA.RData")
@@ -208,7 +211,8 @@ bindData <- bind_cols(pcaDataIn,
 l2p <- glmer(lag2peak_halfP ~ MI60_mmhr * PC1 + MI60_mmhr * PC2 + yearCont + (1|site_number),
              data = bindData %>% subset(lag2peak_halfP > 0),
              family = Gamma(link = 'log'),
-             control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1000000)))
+             control = glmerControl(optimizer = "bobyqa", 
+                                    optCtrl = list(maxfun = 1000000)))
 
 summary(l2p)
 
@@ -217,7 +221,8 @@ ggeffect(l2p, terms = c("MI60_mmhr", "PC1"), bias_correction = TRUE) %>%
   plot + theme_bw(base_size = 20)
 
 # conditional effects plot for PC2 x MI60
-ggeffect(l2p, terms = c("MI60_mmhr", "PC2"), bias_correction = TRUE) %>% 
+ggeffect(l2p, terms = c("MI60_mmhr", "PC2"), 
+         bias_correction = TRUE) %>% 
   plot + theme_bw(base_size = 20)
 
 
