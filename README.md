@@ -1,6 +1,6 @@
 # Geographic variability in stream responses to wildfire
 
-This repository contains data processing scripts, analysis code, and supporting materials for Chapter 3 of a study examining post-fire streamflow responses to rainfall across the Colorado Front Range.
+This repository contains data processing scripts, analysis code, and supporting materials for a study examining post-fire stream responses to rainfall in northern Colorado.
 
 ## Overview
 
