@@ -1,0 +1,1799 @@
+---
+title: "Stream response manuscript figures"
+author: "Megan Sears"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, include = F}
+
+library(pacman)
+
+p_load(tidyverse, 
+       bayesplot,
+       here,
+       posterior,
+       viridis,
+       cowplot,
+       reshape,
+       ggdist,
+       showtext,
+       ggtext,
+       brms,
+       ggfortify)
+
+# Set a basic ggplot theme
+theme_set(theme_bw(base_size = 20))
+
+```
+
+# Global bayes figures
+
+## Stage rise
+
+For manuscript
+
+```{r}
+
+stageRise <- readRDS(here("./data/bayes_outputs/global_stageRise_final.rds"))
+
+var_levels <- c(
+  "MI60", 
+  "Fire", 
+  "Snow zone", 
+  "Year"
+)
+
+loo_stageRise <- loo(stageRise)
+#print(loo_pwdModel) # k estimates are good
+
+stageRise_df <- as_draws(stageRise) %>% 
+  data.frame() %>%
+  select(MI60_mmhr, fireetf, sp_catlow, yearCont) %>%
+  melt() %>%
+  mutate(variable = case_match(variable,
+    "MI60_mmhr"   ~ "MI60",
+    "fireetf"     ~ "Fire",
+    "sp_catlow"   ~ "Snow zone",
+    "yearCont"    ~ "Year")) %>%
+   mutate(variable = fct_relevel(variable, var_levels))
+
+sr_summary <- stageRise_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Stage rise')
+
+  
+globalStage <- ggplot(stageRise_df, 
+                      aes(x = value,
+                          y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color='grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1), 
+                     fatten_point = 2.5,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF') +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  scale_y_discrete(limits = rev(var_levels)) +
+    theme(legend.position = 'none',
+        strip.background = element_rect(fill = "white", color = NA),
+        strip.text = element_text(hjust = 0),
+        text = element_text(color = "black")) +
+  labs(x = 'Scaled coefficient',
+       y = NULL)
+  #xlim(-2,2)
+
+globalStage
+
+```
+
+For defense pres
+
+```{r}
+
+stagePlot <- ggplot(stageRise_df, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) + xlim(-2.5,2.5)
+ 
+stagePlot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/defense/stageGlobal.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+
+```
+
+
+## Lag to peak
+
+```{r}
+lag <- readRDS(here("./data/bayes_outputs/global_l2p_final.rds"))
+
+var_levels <- c(
+  "MI60", 
+  "Fire", 
+  "Snow zone", 
+  "Year"
+)
+
+lag_df <- as_draws(lag) %>% 
+  data.frame() %>%
+  select(MI60_mmhr, fireetf, sp_catlow, yearCont) %>%
+  melt() %>%
+  mutate(variable = case_match(variable,
+    "MI60_mmhr"   ~ "MI60",
+    "fireetf"     ~ "Fire",
+    "sp_catlow"   ~ "Snow zone",
+    "yearCont"    ~ "Year")) %>%
+   mutate(variable = factor(variable, levels = var_levels))
+
+lag_summary <- lag_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Lag to peak')
+
+globalLag <- ggplot(lag_df, 
+                    aes(x = value,
+                        y = as.factor(variable))) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1), 
+                     fatten_point = 2.5,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF') +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black",
+                        family = 'sans',
+                        #size=100
+                        ),
+    axis.text = element_text(color = "black"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  ) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) +
+   geom_text(
+    data = lag_summary, 
+    aes(
+      x = 2,
+      y = as.factor(variable),
+      label = percent_positive_label
+    ),
+    inherit.aes = FALSE,
+    hjust = 1,
+    size = 3,
+    nudge_y = 0.12)
+
+
+globalLag
+
+```
+
+## Combine
+
+```{r}
+
+# combine the two globals
+stageRise_df <- stageRise_df %>%
+  mutate(response = 'Stage rise')
+
+lag_df <- lag_df %>%
+  mutate(response = 'Lag to peak')
+
+var_levels <- c("Year",
+                "Snow zone",
+                "Fire",
+                "MI60")
+
+summary <- bind_rows(sr_summary,
+                     lag_summary) %>%
+    mutate(response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")),
+           variable = factor(variable,
+                             levels = var_levels))
+
+global <- bind_rows(stageRise_df,
+                    lag_df) %>%
+  mutate(variable = factor(variable, 
+                           levels = var_levels),
+         response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")))
+
+globalPlot <- ggplot(global, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  facet_wrap(~response) +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) +
+  geom_text(
+    data = summary,
+    aes(
+      x = 2,
+      y = variable,
+      label = percent_positive_label),
+    inherit.aes = FALSE,
+    nudge_y = -0.12,
+    size=5)
+
+globalPlot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/global.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+```
+
+# NDVI figures
+
+## NDVI over time
+
+```{r}
+
+ndvi <- read_csv('./data/final_model_inputs/inputs_combine.csv') %>%
+  mutate(sp_cat = if_else(SP_mean > 60,
+                          'Seasonal',
+                          'Intermittent')) %>%
+  select(site,
+         burn_cat,
+         fire,
+         sp_cat,
+         NDVI_2021.x,
+         NDVI_2022.x,
+         NDVI_2023.x) %>%
+  pivot_longer(!c(site,
+                  burn_cat,
+                  fire,
+                  sp_cat),
+                  names_to = 'year', 
+                  values_to = 'NDVI') %>%
+  mutate(year = str_remove(year, "NDVI_"),
+         year = str_remove(year, "\\.x$")) %>% 
+  drop_na()
+
+ndvi_summary <- ndvi %>%
+  group_by(fire, burn_cat, year, sp_cat) %>%
+  summarise(
+    NDVI_mean = mean(NDVI, na.rm = TRUE),
+    NDVI_sd = sd(NDVI, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+fire_labels <- c(
+  "cpf" = "CPF",
+  "etf" = "ETF")
+
+burn_labels <- c(
+  'burned' = 'Burned',
+  'unburned' = 'Unburned')
+
+ggplot(ndvi_summary, aes(
+  x = year,
+  y = NDVI_mean,
+  color = sp_cat,
+  group = interaction(sp_cat, burn_cat)
+)) +
+  geom_point(position = position_dodge(width = 0.2),
+             size=5) +
+  geom_errorbar(aes(ymin = NDVI_mean - NDVI_sd, ymax = NDVI_mean + NDVI_sd),
+                position = position_dodge(width = 0.2), width = 0.1) +
+   scale_color_manual(values = c("#D95F02",'#7570B3')) +
+  facet_grid(rows = vars(burn_cat), cols = vars(fire),
+              labeller = labeller(
+      burn_cat = burn_labels,
+      fire = fire_labels
+    )) +  # burn_cat on rows
+  theme_bw(base_size=20) +
+  theme(
+    legend.position = c(0.9, .09),
+    strip.background = element_rect(fill = "white", color = NA),
+    strip.text = element_text(color='black', face='bold'),
+    text = element_text(color = "black"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_blank()
+  ) +
+  xlab(NULL) +
+  ylab('NDVI') +
+  labs(color = 'Snow zone')
+
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/ndvi_overtime.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+```
+
+## Stage rise: NDVI
+
+```{r}
+
+srNDVI <- readRDS('./data/bayes_outputs/ndvi_stageRise_final.rds')
+
+var_levels <- c(
+  "MI60",
+  "NDVI", 
+  "MI60*NDVI", 
+  "Year*NDVI", 
+  "MI60*Year*NDVI"
+)
+
+srNDVI_df <- as_draws(srNDVI) %>% 
+  data.frame() %>%
+  select(MI60_mmhr, 
+         NDVI, 
+         MI60_mmhr.NDVI, 
+         yearCont.NDVI, 
+         MI60_mmhr.yearCont.NDVI) %>%
+  melt() %>%
+  mutate(variable = case_match(variable,
+    "MI60_mmhr" ~ "MI60",
+    "NDVI" ~ "NDVI",
+    "MI60_mmhr.NDVI" ~ "MI60*NDVI",
+    "yearCont.NDVI" ~ "Year*NDVI",
+    "MI60_mmhr.yearCont.NDVI" ~ "MI60*Year*NDVI")) %>%
+   mutate(variable = fct_relevel(variable, var_levels))
+
+srNDVI_summary <- srNDVI_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Stage rise')
+
+```
+
+# Stage rise only fig for defense
+
+```{r}
+
+srSimple <- srNDVI_df %>%
+  filter(variable %in% c('MI60',
+                         'NDVI')) %>%
+    mutate(variable = factor(variable, 
+                           levels = c('NDVI',
+                           'MI60')))
+  
+
+ggplot(srSimple, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) 
+
+
+ggsave('/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/NDVIbayesSimple.png',
+       dpi=800,
+       height=8,
+       width=12)
+
+
+```
+
+## Lag to peak: NDVI
+
+```{r}
+
+lpNDVI <- readRDS('./data/bayes_outputs/ndvi_l2p_final.rds')
+
+lpNDVI_df <- as_draws(lpNDVI) %>% 
+  data.frame() %>%
+    select(MI60_mmhr, 
+         NDVI, 
+         MI60_mmhr.NDVI, 
+         yearCont.NDVI, 
+         MI60_mmhr.yearCont.NDVI) %>%
+  melt() %>%
+  mutate(variable = case_match(variable,
+    "MI60_mmhr" ~ "MI60",
+    "NDVI" ~ "NDVI",
+    "MI60_mmhr.NDVI" ~ "MI60*NDVI",
+    "yearCont.NDVI" ~ "Year*NDVI",
+    "MI60_mmhr.yearCont.NDVI" ~ "MI60*Year*NDVI")) %>%
+   mutate(variable = fct_relevel(variable, var_levels))
+
+lpNDVI_summary <- lpNDVI_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Lag to peak')
+
+```
+
+## Combine
+
+```{r}
+# combine the NDVI
+srNDVI_df <- srNDVI_df %>%
+  mutate(response = 'Stage rise')
+
+lpNDVI_df <- lpNDVI_df %>%
+  mutate(response = 'Lag to peak')
+
+var_levels <- c(
+    "MI60*Year*NDVI",
+    "Year*NDVI",
+    "MI60*NDVI",
+    "NDVI",
+    "MI60")
+
+summary <- bind_rows(srNDVI_summary,
+                     lpNDVI_summary) %>%
+    mutate(response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")),
+           variable = factor(variable,
+                             levels = var_levels))
+
+combineNDVI <- bind_rows(srNDVI_df,
+                    lpNDVI_df) %>%
+  mutate(variable = factor(variable, 
+                           levels = var_levels),
+         response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")))
+
+NDVIPlot <- ggplot(combineNDVI, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  facet_wrap(~response) +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) +
+  geom_text(
+    data = summary,
+    aes(
+      x = 0.5,
+      y = variable,
+      label = percent_positive_label),
+    inherit.aes = FALSE,
+    size = 5,
+    nudge_y = -0.12)
+
+NDVIPlot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/NDVI_bayes.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+```
+
+# Catchment variables
+
+## PCA
+
+```{r}
+
+pca <- readRDS('./data/pca_output/pca.rds')
+
+rownames(pca$rotation) <- c("Valleys\n& hollows", "Clay", "Sand", "dNBR", "Area > 75% elevation", "Max flow length")
+pca
+
+pca_plot <- autoplot(pca,
+         label = FALSE, 
+         loadings = TRUE, 
+         loadings.label = TRUE,
+         loadings.colour = "black",
+         loadings.label.colour = 'black',
+         loadings.label.size = 5,
+         loadings.label.vjust=1.3,
+         loadings.label.hjust=0) +
+  geom_point(size = 2, color = "black") + 
+  theme_bw(base_size=20) +
+  theme(
+    text = element_text(
+      color = "black"),
+  axis.text.x = element_text(color = "black"),
+    axis.text.y = element_text(color = "black"),
+    axis.title.x = element_text(color = "black"),
+    axis.title.y = element_text(color = "black"),
+  panel.grid = element_blank(),
+  panel.border = element_rect(color = "black", fill = NA, size = 0.75)) +
+  labs( x = 'PC1 (42%)',
+        y = 'PC2 (27%)') +
+  xlim(-0.15, 0.15) +
+   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") 
+
+pca_plot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/PCA_catchmentvars.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+loadings_df <- as.data.frame(pca$rotation)
+loadings_df$var <- rownames(loadings_df)
+
+pca_plot <- autoplot(pca, label = F, loadings = F) +   # disable built-in arrows
+     geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
+  geom_segment(data = loadings_df,
+               aes(x = 0, y = 0, xend = PC1/5.35, yend = PC2/5.35),
+               arrow = arrow(length = unit(0.03, "npc")),
+               color = "black",
+               linewidth = 1.2) +   # <-- make thicker
+  geom_text(data = loadings_df,
+            aes(x = PC1/5.35, y = PC2/5.35, label = var),
+            vjust = -0.4, hjust = -0.1, color = "black", size = 5) +
+  geom_point(size = 2, color = "black") +
+  theme_bw(base_size = 20) +
+  theme(panel.grid = element_blank()) +
+  xlim(-0.15,0.15) 
+  #ylim(-0.16,0.15)
+
+
+```
+
+## Boxplots
+
+```{r}
+
+inputs <- read_csv('./data/final_model_inputs/events_inputs_v2.csv')
+
+# remove the unburned sites from inputs for dnbr and ndvi
+inputs_edit <- inputs
+
+# make df long & remove the categorical geology
+inputs_long <- inputs_edit %>%
+  distinct(site,
+           .keep_all = T) %>%
+  select(AVG_SAND,
+         AVG_CLAY,
+         mean_dnbr,
+         hypso75,
+         frac_valley,
+         flow_length_m,
+         fire,
+         sp_cat) %>%
+  pivot_longer(!c(sp_cat, fire),
+               names_to = 'var',
+               values_to = 'vals') %>%
+  mutate(var = case_when(
+    var == 'AVG_CLAY' ~ 'Clay (%)',
+    var == 'hypso75' ~ 'Area > 75% elevation',
+    var == 'frac_valley' ~ 'Valleys & hollows',
+    var == 'flow_length_m' ~ 'Max flow length (m)',
+    var == 'mean_dnbr' ~ 'dNBR',
+    var == 'AVG_SAND' ~ "Sand (%)"
+  )) %>%
+  mutate(fire = if_else(fire == 'cpf',
+                        'CPF',
+                        'ETF'),
+         sp_cat = if_else(sp_cat == 'high',
+                          'Seasonal',
+                          'Intermittent'))
+
+# get var summaries
+vars_summary <- inputs_long %>% 
+  group_by(fire, sp_cat, var) %>% 
+  summarize(mean = mean(vals))
+
+inputs_long <- inputs_long %>%
+  mutate(var = factor(var, levels = c(
+    "Clay (%)",
+    "Sand (%)",
+    "Valleys & hollows",
+    "Area > 75% elevation",
+    "dNBR",
+    "Max flow length (m)"
+  )))
+
+
+boxplots <- ggplot(inputs_long, aes(x = fire, y = vals, fill = sp_cat)) +
+      geom_boxplot(color = "black", size = 0.2, width = 0.6) +
+      scale_fill_manual(values = c("#D95F02",'#7570B3')) +
+  facet_wrap(~var, scales = 'free_y', ncol = 2) +
+      labs(x = NULL, y = NULL, fill = 'Snow zone') +
+  theme_bw(base_size=20) +
+      theme(
+        legend.position = 'bottom',
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        strip.background = element_blank(),
+        axis.title = element_text(color = "black"),
+        axis.text = element_text(color = "black"),
+        strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black")) 
+
+boxplots
+
+ggsave(
+  './figures/SR_response/catchmentvars_boxplot.png',
+       dpi=800,
+       width=12,
+       height=8)
+####################################################
+# can't have boxplot for ETF intermittent bc only 2 sites
+
+boxplot_data <- inputs_long %>%
+  filter(!(fire == "ETF" & sp_cat == "Intermittent"))
+
+etf_int_data <- inputs_long %>%
+  filter(fire == "ETF", sp_cat == "Intermittent")
+
+boxplots <- ggplot() +
+  geom_boxplot(
+    data = boxplot_data,
+    aes(x = fire, y = vals, fill = sp_cat),
+    color = "black",
+    size = 0.2,
+    width = 0.6
+  ) +
+  geom_point(
+    data = etf_int_data,
+    aes(x = fire, y = vals, fill = sp_cat),
+    shape = 21,
+    size = 3,
+    stroke = 0.4,
+position = position_nudge(x = 0.4)
+    #position = position_jitter(width = 0.08),
+    #position = position_dodge(width = 1)
+  ) +
+  scale_fill_manual(values = c("#D95F02", "#7570B3")) +
+  facet_wrap(~var, scales = "free_y", ncol = 2) +
+  labs(x = NULL, y = NULL, fill = "Snow zone") +
+  theme_bw(base_size = 20) +
+  theme(
+    legend.position = "bottom",
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    strip.background = element_blank(),
+    axis.title = element_text(color = "black"),
+    axis.text = element_text(color = "black"),
+    strip.text = element_text(
+      hjust = 0,
+      color = "black",
+      face = "bold"
+    ),
+    text = element_text(color = "black")
+  )
+
+boxplots
+
+ggsave(
+  './figures/SR_response/catchmentvars_boxplot_dec25.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+
+```
+
+## PC + Boxplots
+
+```{r}
+
+both <- plot_grid(pca_plot,
+                  boxplots)
+
+both
+
+ggsave(
+  './figures/SR_response/pca_boxplots_dec25.png',
+       dpi=800,
+       width=14,
+       height=8)
+
+
+```
+
+## Stage rise
+
+```{r}
+
+srInt <- readRDS(here("./data/bayes_outputs/interaction_stageRise_bayes.rds"))
+
+var_levels <- c("MI60*PC2",
+                "PC2",
+                "MI60*PC1",
+                "PC1",
+                "MI60")
+
+srInt_df <- as_draws(srInt) %>% 
+  data.frame() %>%
+  select(2,3,4,6,7) %>%
+  melt() %>%
+    mutate(variable = case_match(variable,
+    "MI60_mmhr.PC2_scale" ~ "MI60*PC2",
+    "MI60_mmhr.PC1_scale" ~ "MI60*PC1",
+    "PC1_scale" ~ "PC1",
+    "PC2_scale" ~ "PC2",
+    "MI60_mmhr" ~ "MI60")) %>%
+   mutate(variable = factor(variable, levels = var_levels))
+
+srInt_summary <- srInt_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Stage rise')
+
+
+srIntSimple <- srInt_df %>%
+  filter(variable %in% c('MI60',
+                         'PC1',
+                         'PC2'))
+
+srIntPlot <- ggplot(srIntSimple, 
+                      aes(x = value,
+                          y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color='grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1), 
+                     fatten_point = 2.5,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF') +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+    theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) 
+
+srIntPlot
+
+```
+
+## Lag to peak
+
+```{r}
+
+l2pInt <- readRDS(here("./data/bayes_outputs/interaction_lag2peak_bayes.rds"))
+
+l2pInt_df <- as_draws(l2pInt) %>% 
+  data.frame() %>%
+  select(2,3,4,6,7) %>%
+  melt() %>%
+    mutate(variable = case_match(variable,
+    "MI60_mmhr.PC2_scale" ~ "MI60*PC2",
+    "MI60_mmhr.PC1_scale" ~ "MI60*PC1",
+    "PC1_scale" ~ "PC1",
+    "PC2_scale" ~ "PC2",
+    "MI60_mmhr" ~ "MI60")) %>%
+   mutate(variable = factor(variable, levels = var_levels))
+
+l2pInt_summary <- l2pInt_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Lag to peak')
+
+  
+l2pIntPlot <- ggplot(l2pInt_df, 
+                      aes(x = value,
+                          y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color='grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1), 
+                     fatten_point = 2.5,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF') +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  #scale_y_discrete(limits = rev(var_levels)) +
+    theme(legend.position = 'none',
+        strip.background = element_rect(fill = "white", color = NA),
+        strip.text = element_text(hjust = 0),
+        text = element_text(color = "black")) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) 
+
+l2pIntPlot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/interactionbayesSimple.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+```
+
+## Combine
+
+```{r}
+
+# combine the two globals
+srInt_df <- srInt_df %>%
+  mutate(response = 'Stage rise')
+
+l2pInt_df <- l2pInt_df %>%
+  mutate(response = 'Lag to peak')
+
+summary <- bind_rows(srInt_summary,
+                     l2pInt_summary) %>%
+    mutate(response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")),
+           variable = factor(variable,
+                             levels = var_levels))
+
+combineInt <- bind_rows(srInt_df,
+                    l2pInt_df) %>%
+  mutate(variable = factor(variable, 
+                           levels = var_levels),
+         response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")))
+
+intPlot <- ggplot(combineInt, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  facet_wrap(~response) +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) +
+  geom_text(
+    data = summary,
+    aes(
+      x = 1,
+      y = variable,
+      label = percent_positive_label),
+    inherit.aes = FALSE,
+    size = 5,
+    nudge_y = -0.1)
+
+intPlot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/interaction_bayes.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+```
+
+# PWD
+
+## General PWD fig
+
+```{r}
+inputs <- read_csv('./data/final_model_inputs/events_inputs_v2.csv')
+
+inputs_edit <- inputs 
+
+hist(inputs$lag_pwd)
+
+
+# make a sep lag pwd plot
+pwd <- inputs_edit %>%
+  select(lag_pwd,
+         fire,
+         sp_cat,
+         year) %>%
+  pivot_longer(!c(sp_cat, fire, year),
+               names_to = 'var',
+               values_to = 'vals') %>%
+  mutate(var = 'PWD') %>%
+  mutate(fire = if_else(fire == 'cpf',
+                        'CPF',
+                        'ETF'),
+          sp_cat = if_else(sp_cat == 'high',
+                          'Seasonal',
+                          'Intermittent'))
+
+# lag pwd plot only
+pwd_plot <-  ggplot(pwd, aes(x = fire, y = vals, fill = sp_cat)) +
+  geom_boxplot(color = "black", size = 0.2, width = 0.6) +
+      scale_fill_manual(values = c("#D95F02",'#7570B3')) +
+  #facet_wrap(~var, ncol = 3) +
+      labs(y='PWD (mm)', x= NULL, fill = 'Snow zone') +
+    theme_bw(base_size=25)+
+      theme(
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        strip.background = element_blank(),
+        strip.text = element_text(color = "black"),
+        axis.title = element_text(color = "black"),
+        axis.text = element_text(color = "black"),
+        legend.position = "bottom",
+        plot.margin = margin(10, 5, 5, 5)
+      ) 
+
+pwd_plot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/pwdSimple.png',
+       dpi=800,
+  width=12,
+  height=8)
+
+
+ggplot(inputs, aes(x = lag_pwd, y=stage_rise_cm)) +
+                    geom_point() + geom_smooth(method='lm')
+ 
+```
+
+## Stage rise
+
+```{r}
+
+srPWD <- readRDS(here("./data/bayes_outputs/pwd_stageRise_bayes.rds"))
+
+var_levels <- c("MI60*PWD",
+                "PWD",
+                "MI60")
+
+srPWD_df <- as_draws(srPWD) %>% 
+  data.frame() %>%
+  select(2,3,7) %>%
+  melt() %>%
+    mutate(variable = case_match(variable,
+    "MI60_mmhr.lag_pwd" ~ "MI60*PWD",
+    "lag_pwd" ~ "PWD",
+    "MI60_mmhr" ~ "MI60")) %>%
+   mutate(variable = factor(variable, levels = var_levels))
+
+srPWD_summary <- srPWD_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Stage rise')
+
+  
+srPWDPlot <- ggplot(srPWD_df, 
+                      aes(x = value,
+                          y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color='grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1), 
+                     fatten_point = 2.5,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF') +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  #scale_y_discrete(limits = rev(var_levels)) +
+    theme(legend.position = 'none',
+        strip.background = element_rect(fill = "white", color = NA),
+        strip.text = element_text(hjust = 0),
+        text = element_text(color = "black")) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) 
+
+srPWDPlot
+
+```
+
+# Stage rise only fig for defense
+
+```{r}
+
+srSimple <- srPWD_df %>%
+  filter(variable %in% c('MI60',
+                         'PWD')) %>%
+    mutate(variable = factor(variable, 
+                           levels = c('PWD',
+                           'MI60')))
+  
+
+ggplot(srSimple, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) 
+
+
+ggsave('/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/PWDbayesSimple.png',
+       dpi=800,
+       height=8,
+       width=12)
+
+
+```
+
+## Lag to peak
+
+```{r}
+
+lagPWD <- readRDS(here("./data/bayes_outputs/pwd_l2p_bayes.rds"))
+
+var_levels <- c("MI60*PWD",
+                "PWD",
+                "MI60")
+
+lagPWD_df <- as_draws(lagPWD) %>% 
+  data.frame() %>%
+  select(2,3,7) %>%
+  melt() %>%
+    mutate(variable = case_match(variable,
+    "MI60_mmhr.lag_pwd" ~ "MI60*PWD",
+    "lag_pwd" ~ "PWD",
+    "MI60_mmhr" ~ "MI60")) %>%
+   mutate(variable = factor(variable, levels = var_levels))
+
+lagPWD_summary <- lagPWD_df %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value),
+            median = median(value),
+            min = min(value),
+            max = max(value),
+            lower_66 = quantile(value, 0.17),
+            upper_66 = quantile(value, 0.83),
+            lower_95 = quantile(value, 0.025),
+            upper_95 = quantile(value, 0.975),
+            percent_positive = round(mean(value > 0) * 100, 1)) %>%
+  mutate(percent_positive_label = paste0("P>0 = ", 
+                                         sprintf("%.1f", 
+                                                 percent_positive), "%")) %>%
+  mutate(response = 'Lag to peak')
+
+  
+lagPWDPlot <- ggplot(lagPWD_df, 
+                      aes(x = value,
+                          y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color='grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1), 
+                     fatten_point = 2.5,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF') +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  #scale_y_discrete(limits = rev(var_levels)) +
+    theme(legend.position = 'none',
+        strip.background = element_rect(fill = "white", color = NA),
+        strip.text = element_text(hjust = 0),
+        text = element_text(color = "black")) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) 
+
+lagPWDPlot
+
+```
+
+## Combine
+
+```{r}
+
+# combine the PWD
+srPWD_df <- srPWD_df %>%
+  mutate(response = 'Stage rise')
+
+lagPWD_df <- lagPWD_df %>%
+  mutate(response = 'Lag to peak')
+
+summary <- bind_rows(srPWD_summary,
+                     lagPWD_summary) %>%
+    mutate(response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")),
+           variable = factor(variable,
+                             levels = var_levels))
+
+combinePWD <- bind_rows(srPWD_df,
+                    lagPWD_df) %>%
+  mutate(variable = factor(variable, 
+                           levels = var_levels),
+         response = factor(response, 
+                           levels = c("Stage rise", 
+                                      "Lag to peak")))
+
+PWDPlot <- ggplot(combinePWD, 
+                    aes(x = value,
+                        y=variable)) +
+  geom_vline(xintercept = 0) +
+  stat_slab(aes(fill = after_stat(level)), 
+            .width = c(.66, .95, 1),
+            color = 'grey',
+            linewidth = 0.3) +
+  stat_pointinterval(.width = c(.66, .95, 1),
+                     fatten_point = 2,
+                     interval_size_domain = c(2,5,10),
+                     color = '#D50032FF',
+                     point_interval=mean_qi) +
+  paletteer::scale_fill_paletteer_d("nbapalettes::kings_city") +
+  facet_wrap(~response) +
+  theme(
+    legend.position = 'none',
+    strip.background = element_rect(fill = "white", 
+                                    color = NA),
+    strip.text = element_text(hjust = 0,
+                              color='black',
+                              face='bold'),
+    text = element_text(color = "black"),
+    axis.text = element_text(color = "black",
+                             face='bold'),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()) +
+  labs(x = 'Scaled coefficient',
+       y = NULL) +
+  geom_text(
+    data = summary,
+    aes(
+      x = 0.5,
+      y = variable,
+      label = percent_positive_label),
+    inherit.aes = FALSE,
+    size = 5,
+    nudge_y = -0.12)
+
+PWDPlot
+
+ggsave(
+  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/PWD_bayes.png',
+       dpi=800,
+       width=12,
+       height=8)
+
+```
+
+
+
+# Archive 
+
+## Interactions
+
+```{r}
+
+sr_inter <- read_csv('./data/bayes_interaction_outputs/stageRiseInterac_summary_final.csv') %>%
+  mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+srInt_plot <- ggplot(sr_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('Stage rise')
+
+```
+
+## Interactions by fire
+
+```{r}
+
+etf_sr_inter <- read_csv('./data/bayes_interaction_outputs/etf_stageRiseInterac_summary_prelim.csv') %>%
+  mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+etf_srInt_plot <- ggplot(etf_sr_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('ETF - Stage rise')
+
+etf_srInt_plot
+
+cpf_sr_inter <- read_csv('./data/bayes_interaction_outputs/cpf_stageRiseInterac_summary_prelim.csv') %>%
+  mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+cpf_srInt_plot <- ggplot(cpf_sr_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('CPF - Stage rise')
+
+cpf_srInt_plot
+
+plot_grid(cpf_srInt_plot,
+          etf_srInt_plot)
+
+```
+
+## Interactions by SZ
+
+```{r}
+
+high_sr_inter <- read_csv('./data/bayes_interaction_outputs/high_stageRiseInterac_summary_prelim.csv') %>%
+  mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+high_srInt_plot <- ggplot(high_sr_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('High - Stage rise')
+
+high_srInt_plot
+
+low_sr_inter <- read_csv('./data/bayes_interaction_outputs/low_stageRiseInterac_summary_prelim.csv') %>%
+  mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+low_srInt_plot <- ggplot(low_sr_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('Low - Stage rise')
+
+low_srInt_plot
+
+plot_grid(low_srInt_plot,
+          high_srInt_plot)
+
+```
+
+## Interactions
+
+```{r}
+
+l2p_inter <- read_csv('./data/bayes_interaction_outputs/lag2peakInterac_summary_final.csv') %>%
+  arrange(-abs(mean)) %>% 
+    mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+l2pInt_plot <- ggplot(l2p_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('Lag to peak')
+
+plot_grid(srInt_plot,l2pInt_plot)
+
+```
+
+## Interactions by fire
+
+```{r}
+
+etf_l2p_inter <- read_csv('./data/bayes_interaction_outputs/etf_lag2peakInterac_summary_prelim.csv') %>%
+  arrange(-abs(mean)) %>% 
+    mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+etf_l2pInt_plot <- ggplot(etf_l2p_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('ETF - Lag to peak')
+
+cpf_l2p_inter <- read_csv('./data/bayes_interaction_outputs/cpf_lag2peakInterac_summary_prelim.csv') %>%
+  arrange(-abs(mean)) %>% 
+    mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+cpf_l2pInt_plot <- ggplot(cpf_l2p_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('CPF - Lag to peak')
+
+plot_grid(cpf_l2pInt_plot,
+          etf_l2pInt_plot)
+
+```
+
+## Interactiosn by SZ
+
+```{r}
+
+
+high_l2p_inter <- read_csv('./data/bayes_interaction_outputs/high_lag2peakInterac_summary_prelim.csv') %>%
+  arrange(-abs(mean)) %>% 
+    mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+high_l2pInt_plot <- ggplot(high_l2p_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('High SZ - Lag to peak')
+
+low_l2p_inter <- read_csv('./data/bayes_interaction_outputs/low_lag2peakInterac_summary_prelim.csv') %>%
+  arrange(-abs(mean)) %>% 
+    mutate(variable = dplyr::recode(variable,
+    "MI60_mmhr.terrain_connec"    = "Connectivity",
+    "MI60_mmhr.soil_clay"         = "Clay",
+    "MI60_mmhr.terrain_slope30"   = "Slope > 30",
+    "MI60_mmhr.terrain_vall_holl" = "Valleys & hollows",
+    "MI60_mmhr.lag_pwd"           = "PWD",
+    "MI60_mmhr.mean_dnbr"         = "dNBR",
+    "MI60_mmhr.terrain_elongation" = "Elongation",
+    "MI60_mmhr.terrain_recharge" = 'Recharge areas',
+    "MI60_mmhr.terrain_glacial" = "Glacial deposits",
+    "MI60_mmhr.mulch_frac" = "Mulched areas",
+    "MI60_mmhr.SP_mean" = 'Snow persistence',
+    "MI60_mmhr.terrain_hypso75" = ">75% elevation",
+    "MI60_mmhr.terrain_flowlength" = 'Flow length',
+    "MI60_mmhr.soil_ksat" = 'Ksat')) %>%
+    arrange(abs(mean)) %>%
+    mutate(variable = factor(variable, levels = variable))
+
+low_l2pInt_plot <- ggplot(low_l2p_inter, aes(y = variable)) +
+  geom_vline(xintercept = 0) +
+  # min to max (lightest)
+  geom_linerange(aes(xmin = min, xmax = max), linewidth = 0.6, color = "steelblue1") +
+  # 95% interval (medium)
+  geom_linerange(aes(xmin = lower_95, xmax = upper_95), linewidth = 1, color = "steelblue3") +
+  # 66% interval (darkest)
+  geom_linerange(aes(xmin = lower_66, xmax = upper_66), linewidth = 2, color = "steelblue4") +
+  # mean point
+  geom_point(aes(x = mean), size = 4, shape = 21, fill = "white", color = "black") +
+  labs(x = "Scaled coefficient", y = NULL) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")) +
+  ggtitle('Low SZ - Lag to peak')
+
+plot_grid(low_l2pInt_plot,
+          high_l2pInt_plot)
+
+
+```
+
