@@ -149,7 +149,7 @@ autoplot(pca1,
       size = 180))
 
 ggsave(
-  '/Users/megansears/Documents/Repos/post-fire_rainfall/figures/SR_response/PCA_catchmentvars.png',
+  './figures/SR_response/PCA_catchmentvars.png',
        dpi=800,
        width=12,
        height=8)
